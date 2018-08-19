@@ -9,8 +9,6 @@ import torch.nn.functional as F
 class QNetwork(nn.Module):
     'Policy Model for solving RL tasks with deep learning.'
 
-    activation = F.leaky_relu
-
     def __init__(self, state_size: int, action_size: int, seed: int):
         '''Initializes parameters and builds the model.
 
@@ -37,9 +35,9 @@ class QNetwork(nn.Module):
     def forward(self, state):
         'Runs the state through the network to generate action values.'
 
-        x = activation(self.fc1(state))
-        x = activation(self.fc2(x))
-        x = activation(self.fc3(x))
+        x = F.leaky_relu(self.fc1(state))
+        x = F.leaky_relu(self.fc2(x))
+        x = F.leaky_relu(self.fc3(x))
         x = self.fc4(x)
 
         return x
