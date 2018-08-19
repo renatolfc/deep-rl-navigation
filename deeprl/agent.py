@@ -97,18 +97,18 @@ class Agent(DeviceAwareClass):
                 probability of selecting random actions in epsilon-greedy
         '''
 
-        state = torch.from_numpy(state).float().unsqueeze(0).to(device)
+        state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
         # Policy evaluation {{{
         self.qnetwork_local.eval()
         with torch.no_grad():
             # We don't want to compute gradients here, since we're evaluating
             # our policy. 
-            action_values = self.qnetwork_local(state)
+            action_values = self.qnetwork_local.forward(state)
         self.qnetwork_local.train()
         # }}}
 
         # Epsilon-greedy action selection
-        if random.random() > eps:
+        if random.random() > epsilon:
             return randargmax(action_values.cpu().data.numpy())
         else:
             return random.choice(np.arange(self.action_size))
