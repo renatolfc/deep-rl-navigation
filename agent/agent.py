@@ -190,9 +190,9 @@ class ReplayBuffer(DeviceAwareClass):
                 random seed
         '''
 
-        self.action_size = actyion_size
+        self.action_size = action_size
         self.memory = deque(maxlen=buffer_size)
-        serlf.batch_size = batch_size
+        self.batch_size = batch_size
         self.experience = namedtuple(
             'Experience',
             field_names='state action reward next_state done'.split()
