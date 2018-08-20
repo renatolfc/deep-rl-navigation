@@ -54,6 +54,8 @@ class Agent(DeviceAwareClass):
         '''
         self.state_size = state_size
         self.action_size = action_size
+        if seed is None:
+            seed = 1234
         self.seed = random.seed(seed)
 
         # Q-Network(s) {{{
@@ -72,7 +74,7 @@ class Agent(DeviceAwareClass):
         # Current time step
         self.t_step = 0
 
-    def step(self, state, action, reward, next_state, done):
+    def step(self, state, action, reward, next_state, done, learning=True):
         # Save experience in replay buffer
         self.memory.add(state, action, reward, next_state, done)
 
@@ -81,7 +83,7 @@ class Agent(DeviceAwareClass):
         if self.t_step == 0:
             # Only sample experiences if they can fill a batch
             # (makes sure we don't try to learn at the very beginning)
-            if len(self.memory) > BATCH_SIZE:
+            if learning and len(self.memory) > BATCH_SIZE:
                 experiences = self.memory.sample()
                 self.learn(experiences, GAMMA)
         # }}}
@@ -170,6 +172,23 @@ class Agent(DeviceAwareClass):
 
         for target, local in zip(target_model.parameters(), local_model.parameters()):
             target.data.copy_(tau * local.data + (1.0 - tau) * target.data)
+
+    @staticmethod
+    def load(path):
+        checkpoint = torch.load(path)
+        model = Agent(checkpoint['state_size'], checkpoint['action_size'],
+                      checkpoint['seed'])
+        model.qnetwork_local.load_state_dict(checkpoint['state_dict'])
+        return model
+
+    def save(self, path):
+        checkpoint = {
+            'state_size': self.state_size,
+            'action_size': self.action_size,
+            'seed': self.seed,
+            'state_dict': self.qnetwork_local.state_dict()
+        }
+        torch.save(checkpoint, path)
 
 
 class ReplayBuffer(DeviceAwareClass):
