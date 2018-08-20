@@ -78,4 +78,4 @@ Failure to load a checkpoint file will imply in evaluating a random agent.
 ## Jupyter notebook
 
 As an alternative, you can call the code interactively in the
-[Navigation](Navigation.ipynb) notebook.
+[Report](Report.ipynb) notebook.
