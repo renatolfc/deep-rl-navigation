@@ -81,7 +81,7 @@ def dqn(env, n_episodes=2000, max_t=1000, eps_start=1.0, eps_end=0.001,
             )
             agent.save(checkpointfn)
             break
-    return agent, scores
+    return agent, scores, i_episode - 99
 
 def main():
     parser = argparse.ArgumentParser(description='Trains a learning agent')
