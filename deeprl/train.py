@@ -79,7 +79,7 @@ def dqn(env, n_episodes=2000, max_t=1000, eps_start=1.0, eps_end=0.001,
             logging.info(
                 'Saving checkpoint file at %s', checkpointfn
             )
-            torch.save(agent.qnetwork_local.state_dict(), checkpointfn)
+            agent.save(checkpointfn)
             break
     return agent, scores
 
