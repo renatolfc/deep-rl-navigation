@@ -37,7 +37,7 @@ class DeviceAwareClass(object):
         device = torch.device('cpu')
 
 
-class Agent(DeviceAwareClass):
+class DQNAgent(DeviceAwareClass):
     'Interacts with and learns from the environment'
 
     def __init__(self, state_size: int, action_size: int, seed: int):
@@ -255,3 +255,6 @@ class ReplayBuffer(DeviceAwareClass):
 
 def randargmax(a):
     return np.random.choice(np.flatnonzero(a == a.max()))
+
+
+Agent = DQNAgent
