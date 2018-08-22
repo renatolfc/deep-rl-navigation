@@ -253,8 +253,53 @@ class ReplayBuffer(DeviceAwareClass):
         return len(self.memory)
 
 
+
+class DDQNAgent(DQNAgent):
+    def learn(self, experiences, gamma):
+        '''Updates value parameters using given batch of experience tuples.
+
+        Parameters
+        ----------
+            experiences: Tuple[torch.Tensor]
+                tuple of (s, a, r, s', done) tuples
+            gamma: float
+                Discount factor
+        '''
+        states, actions, rewards, next_states, dones = experiences
+
+        # Estimates the TD target R + γ Q(s′, argmax_a' Q(s', a', w) w−) {{{
+
+        # Estimating argmax_a Q(s', a, w)
+        argmax_q_next_state = self.qnetwork_local.forward(next_states).argmax(dim=1).unsqueeze(1)
+
+        q_next_state = self.qnetwork_target.forward(next_states).gather(1, argmax_q_next_state)
+
+        # By definition, all future rewards after reaching a terminal states are zero.
+        # Hence, we use the `dones` booleans to properly assign value to states.
+        targets = rewards + (gamma * q_next_state * (1 - dones))
+        # }}}
+
+        # Now we get what our current policy thinks are the values of the actions
+        # we've taken in the past
+        estimated = self.qnetwork_local.forward(states).gather(1, actions)
+
+        # We want to minimize the MSE (although this part is super confusing in
+        # the DQN paper. Some people say this should be the Huber loss, but that's
+        # not what I understood from the code attached to the paper.
+        # For more context:
+        # https://stackoverflow.com/a/43720168
+        loss = F.mse_loss(estimated, targets)
+
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        # Updating the target network
+        self.soft_update(self.qnetwork_local, self.qnetwork_target, TAU)
+
+
 def randargmax(a):
     return np.random.choice(np.flatnonzero(a == a.max()))
 
 
-Agent = DQNAgent
+Agent = DDQNAgent
