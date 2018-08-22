@@ -254,7 +254,7 @@ class ReplayBuffer(DeviceAwareClass):
 
 
 
-class DDQNAgent(DQNAgent):
+class DoubleDQNAgent(DQNAgent):
     def learn(self, experiences, gamma):
         '''Updates value parameters using given batch of experience tuples.
 
@@ -302,4 +302,4 @@ def randargmax(a):
     return np.random.choice(np.flatnonzero(a == a.max()))
 
 
-Agent = DDQNAgent
+Agent = DoubleDQNAgent
