@@ -4,6 +4,8 @@ This repository implements an agent that solves a simplified version of the
 [Banana Collector](https://raw.githubusercontent.com/Unity-Technologies/ml-agents/master/docs/images/banana.png)
 environment of the [Unity ML agents](https://github.com/Unity-Technologies/ml-agents) framework.
 
+[![Learned Agent](https://media.giphy.com/media/4a2Xg7yRfY3FgCJyKz/giphy.gif)](https://www.youtube.com/watch?v=B4JKTivr4qA)
+
 ## The environment
 
 In particular, in this repository we solve the custom Udacity-built environment
