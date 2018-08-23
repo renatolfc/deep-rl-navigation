@@ -14,6 +14,14 @@ from .util import load_environment
 from .agent import Agent
 
 
+def get_state(env_info, use_visual):
+    if use_visual:
+        state = env_info.visual_observations[0]
+    else:
+        state = env_info.vector_observations[0]
+    return state
+
+
 def dqn(env, n_episodes=2000, max_t=1000, eps_start=1.0, eps_end=0.001,
         eps_decay=0.995, solution_threshold=13.0, checkpointfn='checkpoint.pth'):
     """Function that uses Deep Q Networks to learn environments.
@@ -39,19 +47,25 @@ def dqn(env, n_episodes=2000, max_t=1000, eps_start=1.0, eps_end=0.001,
     state = env_info.vector_observations[0]
     state_size = len(state)
 
-    agent = Agent(state_size, action_size, 123)
+    if state_size == 0:
+        use_visual = True
+        state = env_info.visual_observations[0]
+        state_size = state.shape
+
+    agent = Agent(state_size, action_size, 123, use_visual)
 
     scores = []  # All episodes seen over training
     scores_window = deque(maxlen=100)  # last 100 scores
     eps = eps_start
     for i_episode in range(n_episodes):
         env_info = env.reset(train_mode=True)[brain_name]
-        state = env_info.vector_observations[0]
+        state = get_state(env_info, use_visual)
+
         score = 0
         for t in range(max_t):
             action = agent.act(state, eps)
             env_info = env.step(action)[brain_name]
-            next_state = env_info.vector_observations[0]
+            next_state = get_state(env_info, use_visual)
             reward = env_info.rewards[0]
             done = env_info.local_done[0]
             agent.step(state, action, reward, next_state, done)

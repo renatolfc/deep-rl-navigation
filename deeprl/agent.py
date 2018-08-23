@@ -11,6 +11,7 @@ import torch
 import torch.optim as optim
 import torch.nn.functional as F
 
+from .model import VisualAdvantageNetwork
 from .model import AdvantageNetwork as QNetwork
 
 BUFFER_SIZE = int(1e5)  # Replay buffer size
@@ -40,7 +41,7 @@ class DeviceAwareClass(object):
 class DQNAgent(DeviceAwareClass):
     'Interacts with and learns from the environment'
 
-    def __init__(self, state_size: int, action_size: int, seed: int):
+    def __init__(self, state_size: int, action_size: int, seed: int, use_visual=False):
         '''Initializes an Agent object.
 
         Parameters
@@ -57,10 +58,15 @@ class DQNAgent(DeviceAwareClass):
         if seed is None:
             seed = 1234
         self.seed = random.seed(seed)
+        self.use_visual = use_visual
 
         # Q-Network(s) {{{
-        self.qnetwork_local = QNetwork(state_size, action_size, seed).to(self.device)
-        self.qnetwork_target = QNetwork(state_size, action_size, seed).to(self.device)
+        if use_visual:
+            self.qnetwork_local = VisualAdvantageNetwork(state_size, action_size, seed).to(self.device)
+            self.qnetwork_target = VisualAdvantageNetwork(state_size, action_size, seed).to(self.device)
+        else:
+            self.qnetwork_local = QNetwork(state_size, action_size, seed).to(self.device)
+            self.qnetwork_target = QNetwork(state_size, action_size, seed).to(self.device)
         # }}}
 
         # Gradient descent optimizer {{{
