@@ -11,7 +11,7 @@ import torch
 import torch.optim as optim
 import torch.nn.functional as F
 
-from .model import QNetwork
+from .model import AdvantageNetwork as QNetwork
 
 BUFFER_SIZE = int(1e5)  # Replay buffer size
 BATCH_SIZE = 64  # Minibatch size
