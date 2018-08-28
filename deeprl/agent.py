@@ -11,10 +11,11 @@ import torch
 import torch.optim as optim
 import torch.nn.functional as F
 
+from .model import VisualQNetwork
 from .model import VisualAdvantageNetwork
 from .model import AdvantageNetwork as QNetwork
 
-BUFFER_SIZE = int(1e5)  # Replay buffer size
+BUFFER_SIZE = int(1e4)  # Replay buffer size
 BATCH_SIZE = 64  # Minibatch size
 GAMMA = 0.99  # Discount factor
 TAU = 1e-3  # target parameters soft update
@@ -62,8 +63,8 @@ class DQNAgent(DeviceAwareClass):
 
         # Q-Network(s) {{{
         if use_visual:
-            self.qnetwork_local = VisualAdvantageNetwork(state_size, action_size, seed).to(self.device)
-            self.qnetwork_target = VisualAdvantageNetwork(state_size, action_size, seed).to(self.device)
+            self.qnetwork_local = VisualQNetwork(state_size, action_size, seed).to(self.device)
+            self.qnetwork_target = VisualQNetwork(state_size, action_size, seed).to(self.device)
         else:
             self.qnetwork_local = QNetwork(state_size, action_size, seed).to(self.device)
             self.qnetwork_target = QNetwork(state_size, action_size, seed).to(self.device)
@@ -180,10 +181,10 @@ class DQNAgent(DeviceAwareClass):
             target.data.copy_(tau * local.data + (1.0 - tau) * target.data)
 
     @staticmethod
-    def load(path):
+    def load(path, use_visual=False):
         checkpoint = torch.load(path)
         model = Agent(checkpoint['state_size'], checkpoint['action_size'],
-                      checkpoint['seed'])
+                      checkpoint['seed'], use_visual)
         model.qnetwork_local.load_state_dict(checkpoint['state_dict'])
         return model
 
@@ -308,4 +309,4 @@ def randargmax(a):
     return np.random.choice(np.flatnonzero(a == a.max()))
 
 
-Agent = DoubleDQNAgent
+Agent = DQNAgent
