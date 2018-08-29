@@ -61,6 +61,7 @@ class DQNAgent(DeviceAwareClass):
         self.seed = random.seed(seed)
         self.use_visual = use_visual
         self.episode = 0
+        self.scores = []
 
         # Q-Network(s) {{{
         if use_visual:
@@ -188,6 +189,7 @@ class DQNAgent(DeviceAwareClass):
                       checkpoint['seed'], use_visual)
         model.qnetwork_local.load_state_dict(checkpoint['state_dict'])
         model.episode = checkpoint['episode']
+        model.scores = checkpoint['scores']
         return model
 
     def save(self, path):
@@ -197,6 +199,7 @@ class DQNAgent(DeviceAwareClass):
             'seed': self.seed,
             'state_dict': self.qnetwork_local.state_dict(),
             'episode': self.episode,
+            'scores': self.scores,
         }
         torch.save(checkpoint, path)
 
