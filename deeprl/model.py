@@ -109,8 +109,8 @@ class VisualAdvantageNetwork(nn.Module):
 
         _, self.width, self.height, self.channels = state_size
 
-        self.conv1 = nn.Conv2d(self.channels, 32, 2, 1)
-        self.h1, self.w1 = self._conv_size(self.width, self.height, 2, 0, 1, 1)
+        self.conv1 = nn.Conv2d(self.channels, 32, 4, 2)
+        self.h1, self.w1 = self._conv_size(self.width, self.height, 4, 0, 1, 2)
 
         self.conv2 = nn.Conv2d(32, 64, 4, 2)
         self.h2, self.w2 = self._conv_size(self.h1, self.w1, 4, 0, 1, 2)
@@ -131,10 +131,7 @@ class VisualAdvantageNetwork(nn.Module):
     def forward(self, state):
         'Runs the state through the network to generate action values.'
 
-        try:
-            state = state.view(state.shape[0], self.channels, self.height, self.width)
-        except:
-            import pdb; pdb.set_trace()
+        state = state.view(state.shape[0], self.channels, self.height, self.width)
 
         x = F.leaky_relu(self.conv1(state))
         x = F.leaky_relu(self.conv2(x))
@@ -149,7 +146,6 @@ class VisualAdvantageNetwork(nn.Module):
 
 class VisualQNetwork(nn.Module):
     'Policy Model with Dueling Networks for solving RL tasks with deep learning.'
-
 
     def __init__(self, state_size: tuple, action_size: int, seed: int):
         '''Initializes parameters and builds the model.
@@ -171,8 +167,8 @@ class VisualQNetwork(nn.Module):
 
         _, self.width, self.height, self.channels = state_size
 
-        self.conv1 = nn.Conv2d(self.channels, 32, 2, 1)
-        self.h1, self.w1 = self._conv_size(self.width, self.height, 2, 0, 1, 1)
+        self.conv1 = nn.Conv2d(self.channels, 32, 8, 4)
+        self.h1, self.w1 = self._conv_size(self.width, self.height, 8, 0, 1, 4)
 
         self.conv2 = nn.Conv2d(32, 64, 4, 2)
         self.h2, self.w2 = self._conv_size(self.h1, self.w1, 4, 0, 1, 2)
