@@ -34,9 +34,9 @@ def get_executable_path():
     parent = os.path.dirname(here)
     if platform.system() == 'Linux':
         if '64' in platform.architecture()[0]:
-            return os.path.join(parent, 'Banana_Linux', 'Banana.x86_64')
+            return os.path.join(parent, 'VisualBanana_Linux', 'Banana.x86_64')
         else:
-            return os.path.join(parent, 'Banana_Linux', 'Banana.x86')
+            return os.path.join(parent, 'VisualBanana_Linux', 'Banana.x86')
     elif platform.system() == 'Darwin':
             return os.path.join(parent, 'Banana.app')
     elif platform.system() == 'Windows':
