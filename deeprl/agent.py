@@ -139,10 +139,10 @@ class DQNAgent(DeviceAwareClass):
         states, actions, rewards, next_states, dones = experiences
 
         # Estimates the TD target R + γ max_a q(S′, a, w−) {{{
-        targets_next = self.qnetwork_target.forward(next_states).max(1)[0].unsqueeze(1)
+        targets_next = self.qnetwork_target.forward(next_states).detach().max(1)[0].unsqueeze(1)
         # By definition, all future rewards after reaching a terminal states are zero.
         # Hence, we use the `dones` booleans to properly assign value to states.
-        targets = rewards + (gamma * targets_next * (1 - dones))
+        targets = rewards.reshape((-1, 1)) + (gamma * targets_next * (1 - dones.reshape((-1, 1))))
         # }}}
 
         # Now we get what our current policy thinks are the values of the actions
