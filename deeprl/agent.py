@@ -187,19 +187,23 @@ class DQNAgent(DeviceAwareClass):
     @staticmethod
     def load(path, use_visual=False):
         checkpoint = torch.load(path)
-        model = Agent(checkpoint['state_size'], checkpoint['action_size'],
-                      checkpoint['seed'], use_visual)
+        cls = globals()[checkpoint['class']]
+        model = cls(checkpoint['state_size'], checkpoint['action_size'],
+                    checkpoint['seed'], use_visual)
         model.qnetwork_local.load_state_dict(checkpoint['state_dict'])
+        model.qnetwork_target.load_state_dict(checkpoint['target_state_dict'])
         model.episode = checkpoint['episode']
         model.scores = checkpoint['scores']
         return model
 
     def save(self, path):
         checkpoint = {
+            'class': self.__class__.__name__,
             'state_size': self.state_size,
             'action_size': self.action_size,
             'seed': self.seed,
             'state_dict': self.qnetwork_local.state_dict(),
+            'target_state_dict': self.qnetwork_target.state_dict(),
             'episode': self.episode,
             'scores': self.scores,
         }
