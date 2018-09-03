@@ -165,35 +165,31 @@ class VisualQNetwork(nn.Module):
         self.action_size = action_size
         self.state_size = state_size
 
-        _, self.width, self.height, self.channels = state_size
+        _, self.channels, self.stack_size, self.height, self.width = state_size
 
-        self.conv1 = nn.Conv2d(self.channels, 32, 8, 4)
-        self.h1, self.w1 = self._conv_size(self.width, self.height, 8, 0, 1, 4)
+        self.conv1 = nn.Conv3d(3, 128, kernel_size=(1, 3, 3), stride=(1, 3, 3))
+        self.conv2 = nn.Conv3d(128, 256, kernel_size=(1, 3, 3), stride=(1, 3, 3))
+        self.conv3 = nn.Conv3d(256, 256, kernel_size=(4, 3, 3), stride=(1, 3, 3))
 
-        self.conv2 = nn.Conv2d(32, 64, 4, 2)
-        self.h2, self.w2 = self._conv_size(self.h1, self.w1, 4, 0, 1, 2)
+        self.h1, self.w1, _ = self._conv_size(self.height, self.width, self.stack_size, 3, 0, 1, 3)
+        self.h2, self.w2, _ = self._conv_size(self.h1, self.w1, self.stack_size, 3, 0, 1, 3)
+        self.h3, self.w3, _ = self._conv_size(self.h2, self.w2, 0, 3, 0, 1, 3)
 
-        self.conv3 = nn.Conv2d(64, 128, 4, 2)
-        self.h3, self.w3 = self._conv_size(self.h2, self.w2, 4, 0, 1, 2)
+        self.fc1 = nn.Linear(self.h3 * self.w3 * 256, 1024)
+        self.fc2 = nn.Linear(1024, action_size)
 
-        self.fc1 = nn.Linear(self.h3 * self.w3 * 128, 512)
-        self.fc2 = nn.Linear(512, 128)
-        self.fc3 = nn.Linear(128, action_size)
-
-    def _conv_size(self, h, w, kernel_size, padding, dilation, stride):
+    def _conv_size(self, h, w, d, kernel_size, padding, dilation, stride):
         return math.floor((h + 2 * padding - dilation * (kernel_size - 1) - 1) / stride + 1), \
-                math.floor((w + 2 * padding - dilation * (kernel_size - 1) - 1) / stride + 1)
+                math.floor((w + 2 * padding - dilation * (kernel_size - 1) - 1) / stride + 1), \
+                math.floor((d + 2 * padding - dilation * (kernel_size - 1) - 1) / stride + 1)
 
     def forward(self, state):
         'Runs the state through the network to generate action values.'
 
-        state = state.view(state.shape[0], self.channels, self.height, self.width)
-
-        x = F.leaky_relu(self.conv1(state))
-        x = F.leaky_relu(self.conv2(x))
-        x = F.leaky_relu(self.conv3(x))
+        x = F.selu(self.conv1(state))
+        x = F.selu(self.conv2(x))
+        x = F.selu(self.conv3(x))
         x = x.view(x.size()[0], -1)
-        x = F.leaky_relu(self.fc1(x))
-        x = F.leaky_relu(self.fc2(x))
+        x = F.relu(self.fc1(x))
 
-        return self.fc3(x)
+        return self.fc2(x)
