@@ -122,9 +122,9 @@ class DQNAgent(DeviceAwareClass):
 
         # Epsilon-greedy action selection
         if random.random() > epsilon:
-            return randargmax(action_values.cpu().data.numpy())
+            return np.array([randargmax(action_values.cpu().data.numpy())])
         else:
-            return random.choice(np.arange(self.action_size))
+            return np.array([random.choice(np.arange(self.action_size))])
 
     def learn(self, experiences, gamma):
         '''Updates value parameters using given batch of experience tuples.
