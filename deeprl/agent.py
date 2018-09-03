@@ -289,7 +289,7 @@ class DoubleDQNAgent(DQNAgent):
         # Estimates the TD target R + γ Q(s′, argmax_a' Q(s', a', w) w−) {{{
 
         # Estimating argmax_a Q(s', a, w)
-        argmax_q_next_state = self.qnetwork_local.forward(next_states).argmax(dim=1).unsqueeze(1)
+        argmax_q_next_state = self.qnetwork_local.forward(next_states).detach().argmax(dim=1).unsqueeze(1)
 
         q_next_state = self.qnetwork_target.forward(next_states).gather(1, argmax_q_next_state)
 
