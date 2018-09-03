@@ -231,10 +231,10 @@ class ReplayBuffer(DeviceAwareClass):
         self.action_size = action_size
         self.memory = deque(maxlen=buffer_size)
         self.batch_size = batch_size
-        self.experience = namedtuple(
-            'Experience',
-            field_names='state action reward next_state done'.split()
-        )
+        self.experience = Experience
+
+    def __len__(self):
+        return len(self.memory)
 
     def add(self, state, action, reward, next_state, done):
         'Adds a new experience to memory.'
