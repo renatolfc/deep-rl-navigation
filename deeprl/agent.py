@@ -12,13 +12,12 @@ import torch.optim as optim
 import torch.nn.functional as F
 
 from .model import VisualQNetwork
-from .model import VisualAdvantageNetwork
 from .model import AdvantageNetwork as QNetwork
 
 BUFFER_SIZE = int(1.5e4)  # Replay buffer size
 BATCH_SIZE = 64  # Minibatch size
 GAMMA = 0.99  # Discount factor
-TAU = 1e-3  # target parameters soft update
+TAU = 1e-2  # target parameters soft update
 LR = 5e-4  # learning rate
 UPDATE_EVERY = 4  # how often to update the network
 
@@ -295,7 +294,7 @@ class DoubleDQNAgent(DQNAgent):
 
         # By definition, all future rewards after reaching a terminal states are zero.
         # Hence, we use the `dones` booleans to properly assign value to states.
-        targets = rewards + (gamma * q_next_state * (1 - dones))
+        targets = rewards.reshape((-1, 1)) + (gamma * q_next_state * (1 - dones.reshape((-1, 1))))
         # }}}
 
         # Now we get what our current policy thinks are the values of the actions
