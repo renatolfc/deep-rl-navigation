@@ -10,36 +10,86 @@ import argparse
 from collections import deque
 
 import torch
+import pygame
 import numpy as np
 
 from .util import load_environment
-from .agent import Agent
+from .agent import Agent, BUFFER_SIZE
+
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib import pylab as plt
+import matplotlib.gridspec as gridspec
+import matplotlib.backends.backend_agg as agg
+from matplotlib.ticker import FuncFormatter, MaxNLocator
+
+
+STACK_SIZE = 4
+FRAME_SKIP = 1
+VIEW_RESOLUTION = 1280, 720
+ACTIONS = {
+    0: '↑',
+    1: '↓',
+    2: '←',
+    3: '→',
+}
+
+BATCH = 0
+CHANNELS = 1
+DEPTH = 2
+HEIGHT = 3
+WIDTH = 4
+
+
+class UnityEnvironmentWrapper(object):
+    def __init__(self, env, frameskip=FRAME_SKIP):
+        self.env = env
+        self.frameskip = frameskip
+
+    def step(self, action):
+        for i in range(self.frameskip):
+            env = self.env.step(action)
+        return env
+
+    def __getattr__(self, attr):
+        return getattr(self.env, attr)
 
 
 def rgb2gray(img):
     img = img.squeeze()
     if len(img.shape) == 3:
-        # return img.dot([0.299, 0.587, 0.114]).reshape(
-        #     1, img.shape[0], img.shape[1], 1
-        # )
-        return (img ** 2).dot(
-            [0.299, 0.587, 0.114]
-        ).reshape(1, img.shape[0], img.shape[1], 1)
+        return img.dot([0.299, 0.587, 0.114]).reshape(
+            1, img.shape[0], img.shape[1], 1
+        )
+        #return (img ** 2).dot(
+        #    [0.299, 0.587, 0.114]
+        #).reshape(1, img.shape[0], img.shape[1], 1)
     else:
         raise ValueError('Image in some color space not known')
 
 
 def get_state(env_info, use_visual):
     if use_visual:
-        state = env_info.visual_observations[0]
+        state = env_info.visual_observations[0].transpose(0, 3, 1, 2)
     else:
         state = env_info.vector_observations[0]
     return state
 
 
-def dqn(env, n_episodes=1001, max_t=1000, eps_start=1.0, eps_end=0.001,
-        eps_decay=0.995, solution_threshold=13.0, checkpointfn='checkpoint.pth',
-        load_checkpoint=False, reload_every=None):
+def reset_deque(state):
+    state_deque = deque(maxlen=STACK_SIZE)
+
+    for _ in range(STACK_SIZE):
+        state_deque.append(np.zeros(
+            state.shape
+        ))
+
+    return state_deque
+
+def dqn(env, n_episodes=1001, max_t=1000 * FRAME_SKIP, eps_start=1.0,
+        eps_end=0.001, eps_decay=0.995, solution_threshold=13.0,
+        checkpointfn='checkpoint.pth', load_checkpoint=False,
+        reload_every=None):
     """Function that uses Deep Q Networks to learn environments.
 
     Parameters
@@ -65,35 +115,62 @@ def dqn(env, n_episodes=1001, max_t=1000, eps_start=1.0, eps_end=0.001,
 
     if state_size == 0:
         use_visual = True
-        state = get_state(env_info, use_visual)
-        state_size = (1, state.shape[1], state.shape[2], state.shape[3])
+        initial_state = get_state(env_info, use_visual)
+        state_size = list(initial_state.shape)
+        state_size.insert(2, STACK_SIZE)
+        state_size = tuple(state_size)
 
     if load_checkpoint:
         try:
             agent = Agent.load(checkpointfn, use_visual)
         except Exception:
             logging.exception('Failed to load checkpoint. Ignoring...')
-            agent = Agent(state_size, action_size, 123, use_visual)
+            agent = Agent(state_size, action_size, 0, use_visual)
     else:
-        agent = Agent(state_size, action_size, 123, use_visual)
+        agent = Agent(state_size, action_size, 0, use_visual)
 
     if agent.episode:
         eps = (eps_start * eps_decay) ** agent.episode
     else:
         eps = eps_start
+
+    # pygame.init()
+    # screen = pygame.display.set_mode(VIEW_RESOLUTION, pygame.DOUBLEBUF)
+
     for i_episode in range(agent.episode, n_episodes):
+        state_deque = reset_deque(initial_state)
+
         env_info = env.reset(train_mode=True)[brain_name]
         state = get_state(env_info, use_visual)
+        state_deque.append(state)
 
         score = 0
         for t in range(max_t):
+            state = np.stack(reversed(state_deque), axis=-1) \
+                    .squeeze(axis=0).transpose(0, -1, 1, 2)
+
             action = agent.act(state, eps)
             env_info = env.step(action)[brain_name]
+
             next_state = get_state(env_info, use_visual)
+            state_deque.append(next_state)
+            next_state = np.stack(reversed(state_deque), axis=-1) \
+                    .squeeze(axis=0).transpose(0, -1, 1, 2)
+
+            # if (t % 200) == 0:
+            #     show_agent(state, next_state, action, screen)
+
             reward = env_info.rewards[0]
             done = env_info.local_done[0]
-            agent.step(state, action, reward, next_state, done)
-            state = next_state
+
+            agent.step(
+                state,
+                action,
+                reward,
+                next_state,
+                done,
+            )
+
             score += reward
             if done:
                 break
@@ -105,7 +182,7 @@ def dqn(env, n_episodes=1001, max_t=1000, eps_start=1.0, eps_end=0.001,
             'Episode {}\tAverage Score: {:.2f}\tCurrent Score: {:.2f}\tEpsilon: {:.4f}'
             .format(i_episode, np.mean(agent.scores[-100:]), score, eps)
         )
-        if (i_episode + 1) % 100 == 0:
+        if (i_episode + 1) % 200 == 0:
             logging.info(
                 'Episode {}\tAverage Score: {:.2f}'
                 .format(i_episode, np.mean(agent.scores[-100:]))
@@ -131,6 +208,46 @@ def dqn(env, n_episodes=1001, max_t=1000, eps_start=1.0, eps_end=0.001,
     return agent, i_episode - 99
 
 
+def tick_formatter(tick_val, tick_pos):
+    return ACTIONS.get(tick_val, '')
+
+
+def show_agent(state, next_state, action, screen):
+    fig = plt.figure(0, figsize=(VIEW_RESOLUTION[0]/96, VIEW_RESOLUTION[1]/96), dpi=96)
+
+    for i in range(4):
+        ax = plt.subplot2grid((9, 2), ((i // 2) * 2, i % 2), rowspan=2)
+        ax.imshow(state[:, i, :, :].transpose(1, 2, 0))
+        ax.set_title('State - %d' % (3 - i))
+
+    for i in range(4):
+        ax = plt.subplot2grid((9, 2), (4 + (i // 2) * 2, i % 2), rowspan=2)
+        ax.imshow(next_state[:, i, :, :].transpose(1, 2, 0))
+        ax.set_title('Next State - %d' % (3 - i))
+
+    a = np.zeros((1, 4))
+    a[0, action] = 1
+    ax = plt.subplot2grid((9, 2), (8, 0), colspan=2)
+    ax.imshow(a, cmap='gray')
+    ax.xaxis.set_major_formatter(FuncFormatter(tick_formatter))
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+
+    fig.tight_layout()
+
+    canvas = agg.FigureCanvasAgg(fig)
+    canvas.draw()
+    renderer = canvas.get_renderer()
+    raw_data = renderer.tostring_rgb()
+
+    size = canvas.get_width_height()
+
+    surf = pygame.image.fromstring(raw_data, size, "RGB")
+    surf_pos = surf.get_rect()
+    screen.blit(surf, surf_pos)
+    pygame.display.update()
+    plt.close(fig)
+
+
 def reload_process():
     if '--load-checkpoint' not in sys.argv:
         sys.argv.append('--load-checkpoint')
@@ -148,8 +265,8 @@ def main():
 
     logging.getLogger().setLevel(logging.DEBUG)
 
-    env = load_environment()
-    dqn(env, eps_decay=0.999, n_episodes=100000, reload_every=500,
+    env = UnityEnvironmentWrapper(load_environment())
+    dqn(env, eps_decay=0.995, n_episodes=2000, reload_every=1000,
         checkpointfn=args.checkpoint, load_checkpoint=args.load_chkpt)
 
 if __name__ == '__main__':
