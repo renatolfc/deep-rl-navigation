@@ -116,6 +116,10 @@ class VisualQNetwork(nn.Module):
         self.h2, self.w2, _ = self._conv_size(self.h1, self.w1, self.stack_size, 3, 0, 1, 3)
         self.h3, self.w3, _ = self._conv_size(self.h2, self.w2, 0, 3, 0, 1, 3)
 
+        self.bn1 = nn.BatchNorm3d(128)
+        self.bn2 = nn.BatchNorm3d(256)
+        self.bn3 = nn.BatchNorm3d(256)
+
         self.fc1 = nn.Linear(self.h3 * self.w3 * 256, 1024)
         self.fc2 = nn.Linear(1024, action_size)
 
@@ -127,9 +131,9 @@ class VisualQNetwork(nn.Module):
     def forward(self, state):
         'Runs the state through the network to generate action values.'
 
-        x = F.selu(self.conv1(state))
-        x = F.selu(self.conv2(x))
-        x = F.selu(self.conv3(x))
+        x = F.relu(self.bn1(self.conv1(state)))
+        x = F.relu(self.bn2(self.conv2(x)))
+        x = F.relu(self.bn3(self.conv3(x)))
         x = x.view(x.size()[0], -1)
         x = F.relu(self.fc1(x))
 
@@ -151,7 +155,7 @@ class VisualAdvantageNetwork(VisualQNetwork):
             seed: int
                 Random seed
         '''
-        super().__init__()
+        super().__init__(state_size, action_size, seed)
 
         self.value_fc = nn.Linear(self.h3 * self.w3 * 256, 1024)
         self.advantage_fc = nn.Linear(self.h3 * self.w3 * 256, 1024)
@@ -162,15 +166,12 @@ class VisualAdvantageNetwork(VisualQNetwork):
     def forward(self, state):
         'Runs the state through the network to generate action values.'
 
-        x = F.selu(self.conv1(state))
-        x = F.selu(self.conv2(x))
-        x = F.selu(self.conv3(x))
+        x = F.relu(self.bn1(self.conv1(state)))
+        x = F.relu(self.bn2(self.conv2(x)))
+        x = F.relu(self.bn3(self.conv3(x)))
         x = x.view(x.size()[0], -1)
 
-        x = F.relu(self.value_fc(x))
         value = self.value(F.relu(self.value_fc(x)))
-
-        x = F.relu(self.advantage_fc(x))
         advantage = self.advantage(F.relu(self.advantage_fc(x)))
 
         return value + (advantage - advantage.mean())
