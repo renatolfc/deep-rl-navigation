@@ -110,17 +110,20 @@ class VisualQNetwork(nn.Module):
 
         self.conv1 = nn.Conv3d(3, 128, kernel_size=(1, 3, 3), stride=(1, 3, 3))
         self.conv2 = nn.Conv3d(128, 256, kernel_size=(1, 3, 3), stride=(1, 3, 3))
-        self.conv3 = nn.Conv3d(256, 256, kernel_size=(4, 3, 3), stride=(1, 3, 3))
+        self.conv3 = nn.Conv3d(256, 256, kernel_size=(1, 3, 3), stride=(1, 3, 3))
+        self.conv4 = nn.Conv3d(256, 512, kernel_size=(4, 3, 3), stride=(1, 3, 3))
 
         self.h1, self.w1, _ = self._conv_size(self.height, self.width, self.stack_size, 3, 0, 1, 3)
         self.h2, self.w2, _ = self._conv_size(self.h1, self.w1, self.stack_size, 3, 0, 1, 3)
         self.h3, self.w3, _ = self._conv_size(self.h2, self.w2, 0, 3, 0, 1, 3)
+        self.h4, self.w4, _ = self._conv_size(self.h3, self.w3, 0, 3, 0, 1, 3)
 
         self.bn1 = nn.BatchNorm3d(128)
         self.bn2 = nn.BatchNorm3d(256)
         self.bn3 = nn.BatchNorm3d(256)
+        self.bn4 = nn.BatchNorm3d(512)
 
-        self.fc1 = nn.Linear(self.h3 * self.w3 * 256, 1024)
+        self.fc1 = nn.Linear(self.h4 * self.w4 * 512, 1024)
         self.fc2 = nn.Linear(1024, action_size)
 
     def _conv_size(self, h, w, d, kernel_size, padding, dilation, stride):
@@ -128,15 +131,21 @@ class VisualQNetwork(nn.Module):
                 math.floor((w + 2 * padding - dilation * (kernel_size - 1) - 1) / stride + 1), \
                 math.floor((d + 2 * padding - dilation * (kernel_size - 1) - 1) / stride + 1)
 
-    def forward(self, state):
-        'Runs the state through the network to generate action values.'
+    def conv_forward(self, state):
+        'Runs the state through the convolutional layers of the network.'
 
         x = F.relu(self.bn1(self.conv1(state)))
         x = F.relu(self.bn2(self.conv2(x)))
         x = F.relu(self.bn3(self.conv3(x)))
-        x = x.view(x.size()[0], -1)
-        x = F.relu(self.fc1(x))
+        x = F.relu(self.bn4(self.conv4(x)))
+        return x.view(x.size()[0], -1)
 
+
+    def forward(self, state):
+        'Runs the state through the network to generate action values.'
+
+        x = self.conv_forward(state)
+        x = F.relu(self.fc1(x))
         return self.fc2(x)
 
 
@@ -166,11 +175,7 @@ class VisualAdvantageNetwork(VisualQNetwork):
     def forward(self, state):
         'Runs the state through the network to generate action values.'
 
-        x = F.relu(self.bn1(self.conv1(state)))
-        x = F.relu(self.bn2(self.conv2(x)))
-        x = F.relu(self.bn3(self.conv3(x)))
-        x = x.view(x.size()[0], -1)
-
+        x = self.conv_forward(state)
         value = self.value(F.relu(self.value_fc(x)))
         advantage = self.advantage(F.relu(self.advantage_fc(x)))
 
