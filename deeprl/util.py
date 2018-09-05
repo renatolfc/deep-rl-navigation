@@ -8,6 +8,8 @@ import logging
 import zipfile
 import platform
 
+import numpy as np
+
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pylab as plt
@@ -26,8 +28,10 @@ here = os.path.dirname(os.path.abspath(__file__))
 
 STACK_SIZE = 4
 FRAME_SKIP = 1
+PYGAME_SCREEN = None
 PYGAME_INITIALIZED = False
 VIEW_RESOLUTION = 1280, 720
+VIEW_RESOLUTION = 640, 360
 ACTIONS = {
     0: '↑',
     1: '↓',
@@ -62,11 +66,11 @@ def tick_formatter(tick_val, tick_pos):
     return ACTIONS.get(tick_val, '')
 
 
-def show_agent(state, next_state, action, screen):
-    global PYGAME_INITIALIZED
+def show_agent(state, next_state, action):
+    global PYGAME_INITIALIZED, PYGAME_SCREEN
     if not PYGAME_INITIALIZED:
         pygame.init()
-        screen = pygame.display.set_mode(VIEW_RESOLUTION, pygame.DOUBLEBUF)
+        PYGAME_SCREEN = pygame.display.set_mode(VIEW_RESOLUTION, pygame.DOUBLEBUF)
         PYGAME_INITIALIZED = True
 
     fig = plt.figure(0, figsize=(VIEW_RESOLUTION[0]/96, VIEW_RESOLUTION[1]/96), dpi=96)
@@ -75,9 +79,12 @@ def show_agent(state, next_state, action, screen):
         ax = plt.subplot2grid((3, 5), (0, i), rowspan=2)
         ax.imshow(state[:, i, :, :].transpose(1, 2, 0))
         ax.set_title('Frame - %d' % (3 - i))
+        ax.axis('off')
+
     ax = plt.subplot2grid((3, 5), (0, 4), rowspan=2)
     ax.imshow(next_state[:, -1, :, :].transpose(1, 2, 0))
     ax.set_title('Next state')
+    ax.axis('off')
 
     a = np.zeros((1, 4))
     a[0, action] = 1
@@ -85,6 +92,8 @@ def show_agent(state, next_state, action, screen):
     ax.imshow(a, cmap='gray')
     ax.xaxis.set_major_formatter(FuncFormatter(tick_formatter))
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.set_title('Action')
+    ax.get_yaxis().set_visible(False)
 
     fig.tight_layout()
 
@@ -97,7 +106,7 @@ def show_agent(state, next_state, action, screen):
 
     surf = pygame.image.fromstring(raw_data, size, "RGB")
     surf_pos = surf.get_rect()
-    screen.blit(surf, surf_pos)
+    PYGAME_SCREEN.blit(surf, surf_pos)
     pygame.display.update()
     plt.close(fig)
 
