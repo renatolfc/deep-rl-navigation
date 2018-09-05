@@ -32,6 +32,13 @@ def evaldqn(env, checkpointfn='checkpoint.pth'):
     state = env_info.vector_observations[0]
     state_size = len(state)
 
+    if state_size == 0:
+        use_visual = True
+        initial_state = get_state(env_info, use_visual)
+        state_size = list(initial_state.shape)
+        state_size.insert(2, STACK_SIZE)
+        state_size = tuple(state_size)
+
     agent = Agent.load(checkpointfn, use_visual=True)
 
     env_info = env.reset(train_mode=False)[brain_name]

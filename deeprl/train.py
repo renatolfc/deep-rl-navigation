@@ -10,27 +10,10 @@ import argparse
 from collections import deque
 
 import torch
-import pygame
 import numpy as np
 
 from .agent import Agent, BUFFER_SIZE
 from .util import load_environment, UnityEnvironmentWrapper, get_state
-
-import matplotlib
-matplotlib.use('Agg')
-from matplotlib import pylab as plt
-import matplotlib.gridspec as gridspec
-import matplotlib.backends.backend_agg as agg
-from matplotlib.ticker import FuncFormatter, MaxNLocator
-
-
-VIEW_RESOLUTION = 1280, 720
-ACTIONS = {
-    0: '↑',
-    1: '↓',
-    2: '←',
-    3: '→',
-}
 
 BATCH = 0
 CHANNELS = 1
@@ -110,9 +93,6 @@ def dqn(env, n_episodes=1001, max_t=1000 * FRAME_SKIP, eps_start=1.0,
     else:
         eps = eps_start
 
-    # pygame.init()
-    # screen = pygame.display.set_mode(VIEW_RESOLUTION, pygame.DOUBLEBUF)
-
     for i_episode in range(agent.episode, n_episodes):
         state_deque = reset_deque(initial_state)
 
@@ -132,9 +112,6 @@ def dqn(env, n_episodes=1001, max_t=1000 * FRAME_SKIP, eps_start=1.0,
             state_deque.append(next_state)
             next_state = np.stack(state_deque, axis=-1) \
                     .squeeze(axis=0).transpose(0, -1, 1, 2)
-
-            # if (t % 200) == 0:
-            #     show_agent(state, next_state, action, screen)
 
             reward = env_info.rewards[0]
             done = env_info.local_done[0]
@@ -182,44 +159,6 @@ def dqn(env, n_episodes=1001, max_t=1000 * FRAME_SKIP, eps_start=1.0,
             reload_process()
 
     return agent
-
-
-def tick_formatter(tick_val, tick_pos):
-    return ACTIONS.get(tick_val, '')
-
-
-def show_agent(state, next_state, action, screen):
-    fig = plt.figure(0, figsize=(VIEW_RESOLUTION[0]/96, VIEW_RESOLUTION[1]/96), dpi=96)
-
-    for i in range(4):
-        ax = plt.subplot2grid((3, 5), (0, i), rowspan=2)
-        ax.imshow(state[:, i, :, :].transpose(1, 2, 0))
-        ax.set_title('Frame - %d' % (3 - i))
-    ax = plt.subplot2grid((3, 5), (0, 4), rowspan=2)
-    ax.imshow(next_state[:, -1, :, :].transpose(1, 2, 0))
-    ax.set_title('Next state')
-
-    a = np.zeros((1, 4))
-    a[0, action] = 1
-    ax = plt.subplot2grid((3, 5), (2, 0), colspan=5)
-    ax.imshow(a, cmap='gray')
-    ax.xaxis.set_major_formatter(FuncFormatter(tick_formatter))
-    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-
-    fig.tight_layout()
-
-    canvas = agg.FigureCanvasAgg(fig)
-    canvas.draw()
-    renderer = canvas.get_renderer()
-    raw_data = renderer.tostring_rgb()
-
-    size = canvas.get_width_height()
-
-    surf = pygame.image.fromstring(raw_data, size, "RGB")
-    surf_pos = surf.get_rect()
-    screen.blit(surf, surf_pos)
-    pygame.display.update()
-    plt.close(fig)
 
 
 def reload_process():
