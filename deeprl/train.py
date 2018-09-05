@@ -146,7 +146,7 @@ def dqn(env, n_episodes=1001, max_t=1000 * FRAME_SKIP, eps_start=1.0,
 
         score = 0
         for t in range(max_t):
-            state = np.stack(reversed(state_deque), axis=-1) \
+            state = np.stack(state_deque, axis=-1) \
                     .squeeze(axis=0).transpose(0, -1, 1, 2)
 
             action = agent.act(state, eps)
@@ -154,7 +154,7 @@ def dqn(env, n_episodes=1001, max_t=1000 * FRAME_SKIP, eps_start=1.0,
 
             next_state = get_state(env_info, use_visual)
             state_deque.append(next_state)
-            next_state = np.stack(reversed(state_deque), axis=-1) \
+            next_state = np.stack(state_deque, axis=-1) \
                     .squeeze(axis=0).transpose(0, -1, 1, 2)
 
             # if (t % 200) == 0:
