@@ -182,7 +182,7 @@ def dqn(env, n_episodes=1001, max_t=1000 * FRAME_SKIP, eps_start=1.0,
             'Episode {}\tAverage Score: {:.2f}\tCurrent Score: {:.2f}\tEpsilon: {:.4f}'
             .format(i_episode, np.mean(agent.scores[-100:]), score, eps)
         )
-        if (i_episode + 1) % 200 == 0:
+        if (i_episode + 1) % 100 == 0:
             logging.info(
                 'Episode {}\tAverage Score: {:.2f}'
                 .format(i_episode, np.mean(agent.scores[-100:]))
@@ -205,7 +205,7 @@ def dqn(env, n_episodes=1001, max_t=1000 * FRAME_SKIP, eps_start=1.0,
             env.close()
             reload_process()
 
-    return agent, i_episode - 99
+    return agent
 
 
 def tick_formatter(tick_val, tick_pos):
