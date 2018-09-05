@@ -14,12 +14,12 @@ import torch.nn.functional as F
 from .model import VisualQNetwork
 from .model import AdvantageNetwork as QNetwork
 
-BUFFER_SIZE = int(1.5e4)  # Replay buffer size
+BUFFER_SIZE = int(1e4)  # Replay buffer size
 BATCH_SIZE = 64  # Minibatch size
 GAMMA = 0.99  # Discount factor
-TAU = 1e-2  # target parameters soft update
+TAU = 1e-3  # target parameters soft update
 LR = 5e-4  # learning rate
-UPDATE_EVERY = 4  # how often to update the network
+UPDATE_EVERY = 5  # how often to update the network
 
 Experience = namedtuple('Experience',
                         field_names='state action reward next_state done'.split())
