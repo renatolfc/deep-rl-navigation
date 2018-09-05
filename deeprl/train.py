@@ -13,8 +13,8 @@ import torch
 import pygame
 import numpy as np
 
-from .util import load_environment
 from .agent import Agent, BUFFER_SIZE
+from .util import load_environment, UnityEnvironmentWrapper, get_state
 
 import matplotlib
 matplotlib.use('Agg')
@@ -24,8 +24,6 @@ import matplotlib.backends.backend_agg as agg
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 
-STACK_SIZE = 4
-FRAME_SKIP = 1
 VIEW_RESOLUTION = 1280, 720
 ACTIONS = {
     0: '↑',
@@ -41,20 +39,6 @@ HEIGHT = 3
 WIDTH = 4
 
 
-class UnityEnvironmentWrapper(object):
-    def __init__(self, env, frameskip=FRAME_SKIP):
-        self.env = env
-        self.frameskip = frameskip
-
-    def step(self, action):
-        for i in range(self.frameskip):
-            env = self.env.step(action)
-        return env
-
-    def __getattr__(self, attr):
-        return getattr(self.env, attr)
-
-
 def rgb2gray(img):
     img = img.squeeze()
     if len(img.shape) == 3:
@@ -66,14 +50,6 @@ def rgb2gray(img):
         #).reshape(1, img.shape[0], img.shape[1], 1)
     else:
         raise ValueError('Image in some color space not known')
-
-
-def get_state(env_info, use_visual):
-    if use_visual:
-        state = env_info.visual_observations[0].transpose(0, 3, 1, 2)
-    else:
-        state = env_info.vector_observations[0]
-    return state
 
 
 def reset_deque(state):
@@ -216,18 +192,16 @@ def show_agent(state, next_state, action, screen):
     fig = plt.figure(0, figsize=(VIEW_RESOLUTION[0]/96, VIEW_RESOLUTION[1]/96), dpi=96)
 
     for i in range(4):
-        ax = plt.subplot2grid((9, 2), ((i // 2) * 2, i % 2), rowspan=2)
+        ax = plt.subplot2grid((3, 5), (0, i), rowspan=2)
         ax.imshow(state[:, i, :, :].transpose(1, 2, 0))
-        ax.set_title('State - %d' % (3 - i))
-
-    for i in range(4):
-        ax = plt.subplot2grid((9, 2), (4 + (i // 2) * 2, i % 2), rowspan=2)
-        ax.imshow(next_state[:, i, :, :].transpose(1, 2, 0))
-        ax.set_title('Next State - %d' % (3 - i))
+        ax.set_title('Frame - %d' % (3 - i))
+    ax = plt.subplot2grid((3, 5), (0, 4), rowspan=2)
+    ax.imshow(next_state[:, -1, :, :].transpose(1, 2, 0))
+    ax.set_title('Next state')
 
     a = np.zeros((1, 4))
     a[0, action] = 1
-    ax = plt.subplot2grid((9, 2), (8, 0), colspan=2)
+    ax = plt.subplot2grid((3, 5), (2, 0), colspan=5)
     ax.imshow(a, cmap='gray')
     ax.xaxis.set_major_formatter(FuncFormatter(tick_formatter))
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))

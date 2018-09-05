@@ -10,8 +10,8 @@ from collections import deque
 import torch
 import numpy as np
 
-from .util import load_environment
 from .agent import Agent
+from .util import load_environment, UnityEnvironmentWrapper, get_state
 
 
 def evaldqn(env, checkpointfn='checkpoint.pth'):
@@ -32,7 +32,7 @@ def evaldqn(env, checkpointfn='checkpoint.pth'):
     state = env_info.vector_observations[0]
     state_size = len(state)
 
-    agent = Agent.load(checkpointfn)
+    agent = Agent.load(checkpointfn, use_visual=True)
 
     env_info = env.reset(train_mode=False)[brain_name]
     state = env_info.vector_observations[0]
