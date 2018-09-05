@@ -12,6 +12,8 @@ import numpy as np
 
 from .agent import Agent
 from .util import load_environment, UnityEnvironmentWrapper, get_state
+from .util import STACK_SIZE, show_agent
+from .train import reset_deque
 
 
 def evaldqn(env, checkpointfn='checkpoint.pth'):
@@ -41,17 +43,41 @@ def evaldqn(env, checkpointfn='checkpoint.pth'):
 
     agent = Agent.load(checkpointfn, use_visual=True)
 
+    state_deque = reset_deque(initial_state)
     env_info = env.reset(train_mode=False)[brain_name]
-    state = env_info.vector_observations[0]
+    state = get_state(env_info, use_visual)
+    state_deque.append(state)
+
     score = 0
+    first = True
     while True:
+        state = np.stack(state_deque, axis=-1) \
+                .squeeze(axis=0).transpose(0, -1, 1, 2)
+
         action = agent.act(state)
         env_info = env.step(action)[brain_name]
-        next_state = env_info.vector_observations[0]
+
+        next_state = get_state(env_info, use_visual)
+        state_deque.append(next_state)
+        next_state = np.stack(state_deque, axis=-1) \
+                .squeeze(axis=0).transpose(0, -1, 1, 2)
+
         reward = env_info.rewards[0]
         done = env_info.local_done[0]
-        agent.step(state, action, reward, next_state, done, False)
-        state = next_state
+
+        show_agent(state, next_state, action)
+        if first:
+            input('Press enter to continue')
+            first = False
+
+        agent.step(
+            state,
+            action,
+            reward,
+            next_state,
+            done,
+        )
+
         score += reward
         if done:
             break
