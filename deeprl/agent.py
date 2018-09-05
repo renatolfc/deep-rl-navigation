@@ -84,7 +84,7 @@ class DQNAgent(DeviceAwareClass):
         # Current time step
         self.t_step = 0
 
-    def step(self, state, action, reward, next_state, done, learning=True):
+    def step(self, state, action, reward, next_state, done, learning=True, tau=TAU):
         # Save experience in replay buffer
         self.memory.add(state, action, reward, next_state, done)
 
@@ -95,7 +95,7 @@ class DQNAgent(DeviceAwareClass):
             # (makes sure we don't try to learn at the very beginning)
             if learning and len(self.memory) > BATCH_SIZE:
                 experiences = self.memory.sample()
-                self.learn(experiences, GAMMA)
+                self.learn(experiences, GAMMA, tau)
         # }}}
 
     def act(self, state, epsilon=0.0):
@@ -125,7 +125,7 @@ class DQNAgent(DeviceAwareClass):
         else:
             return np.array([random.choice(np.arange(self.action_size))])
 
-    def learn(self, experiences, gamma):
+    def learn(self, experiences, gamma, tau):
         '''Updates value parameters using given batch of experience tuples.
 
         Parameters
@@ -160,7 +160,7 @@ class DQNAgent(DeviceAwareClass):
         self.optimizer.step()
 
         # Updating the target network
-        self.soft_update(self.qnetwork_local, self.qnetwork_target, TAU)
+        self.soft_update(self.qnetwork_local, self.qnetwork_target, tau)
 
     def soft_update(self, local_model, target_model, tau):
         '''Soft update model parameters.
