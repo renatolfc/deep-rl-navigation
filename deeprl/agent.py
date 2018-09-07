@@ -11,8 +11,8 @@ import torch
 import torch.optim as optim
 import torch.nn.functional as F
 
-from .model import VisualQNetwork
 from .model import AdvantageNetwork as QNetwork
+from .model import VisualAdvantageNetwork as VisualQNetwork
 
 BUFFER_SIZE = int(1e4)  # Replay buffer size
 BATCH_SIZE = 64  # Minibatch size
@@ -273,7 +273,7 @@ class ReplayBuffer(DeviceAwareClass):
 
 
 class DoubleDQNAgent(DQNAgent):
-    def learn(self, experiences, gamma):
+    def learn(self, experiences, gamma, tau):
         '''Updates value parameters using given batch of experience tuples.
 
         Parameters
@@ -313,7 +313,7 @@ class DoubleDQNAgent(DQNAgent):
         self.optimizer.step()
 
         # Updating the target network
-        self.soft_update(self.qnetwork_local, self.qnetwork_target, TAU)
+        self.soft_update(self.qnetwork_local, self.qnetwork_target, tau)
 
 
 def randargmax(a):

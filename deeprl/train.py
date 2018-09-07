@@ -12,7 +12,7 @@ from collections import deque
 import torch
 import numpy as np
 
-from .agent import Agent, BUFFER_SIZE
+from .agent import DoubleDQNAgent as Agent, BUFFER_SIZE
 from .util import load_environment, UnityEnvironmentWrapper, get_state
 from .util import STACK_SIZE, FRAME_SKIP
 
