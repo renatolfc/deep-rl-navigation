@@ -166,8 +166,8 @@ class VisualAdvantageNetwork(VisualQNetwork):
         '''
         super().__init__(state_size, action_size, seed)
 
-        self.value_fc = nn.Linear(self.h3 * self.w3 * 256, 1024)
-        self.advantage_fc = nn.Linear(self.h3 * self.w3 * 256, 1024)
+        self.value_fc = nn.Linear(self.h4 * self.w4 * 512, 1024)
+        self.advantage_fc = nn.Linear(self.h4 * self.w4 * 512, 1024)
 
         self.value = nn.Linear(1024, 1)
         self.advantage = nn.Linear(1024, action_size)
@@ -180,4 +180,3 @@ class VisualAdvantageNetwork(VisualQNetwork):
         advantage = self.advantage(F.relu(self.advantage_fc(x)))
 
         return value + (advantage - advantage.mean())
-
