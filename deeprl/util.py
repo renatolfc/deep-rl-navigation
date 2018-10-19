@@ -2,10 +2,20 @@
 # -*- coding: utf-8 -*-
 
 import os
+import pygame
 import inspect
 import logging
 import zipfile
 import platform
+
+import numpy as np
+
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib import pylab as plt
+import matplotlib.gridspec as gridspec
+import matplotlib.backends.backend_agg as agg
+from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 from unityagents import UnityEnvironment
 
@@ -15,6 +25,90 @@ except Exception:
     logging.exception('Failed to import jupyter modules. Ignoring')
 
 here = os.path.dirname(os.path.abspath(__file__))
+
+STACK_SIZE = 4
+FRAME_SKIP = 1
+PYGAME_SCREEN = None
+PYGAME_INITIALIZED = False
+VIEW_RESOLUTION = 1280, 720
+VIEW_RESOLUTION = 640, 360
+ACTIONS = {
+    0: '↑',
+    1: '↓',
+    2: '←',
+    3: '→',
+}
+
+
+class UnityEnvironmentWrapper(object):
+    def __init__(self, env, frameskip=FRAME_SKIP):
+        self.env = env
+        self.frameskip = frameskip
+
+    def step(self, action):
+        for i in range(self.frameskip):
+            env = self.env.step(action)
+        return env
+
+    def __getattr__(self, attr):
+        return getattr(self.env, attr)
+
+
+def get_state(env_info, use_visual):
+    if use_visual:
+        state = env_info.visual_observations[0].transpose(0, 3, 1, 2)
+    else:
+        state = env_info.vector_observations[0]
+    return state
+
+
+def tick_formatter(tick_val, tick_pos):
+    return ACTIONS.get(tick_val, '')
+
+
+def show_agent(state, next_state, action):
+    global PYGAME_INITIALIZED, PYGAME_SCREEN
+    if not PYGAME_INITIALIZED:
+        pygame.init()
+        PYGAME_SCREEN = pygame.display.set_mode(VIEW_RESOLUTION, pygame.DOUBLEBUF)
+        PYGAME_INITIALIZED = True
+
+    fig = plt.figure(0, figsize=(VIEW_RESOLUTION[0]/96, VIEW_RESOLUTION[1]/96), dpi=96)
+
+    for i in range(4):
+        ax = plt.subplot2grid((3, 5), (0, i), rowspan=2)
+        ax.imshow(state[:, i, :, :].transpose(1, 2, 0))
+        ax.set_title('Frame - %d' % (3 - i))
+        ax.axis('off')
+
+    ax = plt.subplot2grid((3, 5), (0, 4), rowspan=2)
+    ax.imshow(next_state[:, -1, :, :].transpose(1, 2, 0))
+    ax.set_title('Next state')
+    ax.axis('off')
+
+    a = np.zeros((1, 4))
+    a[0, action] = 1
+    ax = plt.subplot2grid((3, 5), (2, 0), colspan=5)
+    ax.imshow(a, cmap='gray')
+    ax.xaxis.set_major_formatter(FuncFormatter(tick_formatter))
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.set_title('Action')
+    ax.get_yaxis().set_visible(False)
+
+    fig.tight_layout()
+
+    canvas = agg.FigureCanvasAgg(fig)
+    canvas.draw()
+    renderer = canvas.get_renderer()
+    raw_data = renderer.tostring_rgb()
+
+    size = canvas.get_width_height()
+
+    surf = pygame.image.fromstring(raw_data, size, "RGB")
+    surf_pos = surf.get_rect()
+    PYGAME_SCREEN.blit(surf, surf_pos)
+    pygame.display.update()
+    plt.close(fig)
 
 
 def build_environment(path):
@@ -34,9 +128,9 @@ def get_executable_path():
     parent = os.path.dirname(here)
     if platform.system() == 'Linux':
         if '64' in platform.architecture()[0]:
-            return os.path.join(parent, 'Banana_Linux', 'Banana.x86_64')
+            return os.path.join(parent, 'VisualBanana_Linux', 'Banana.x86_64')
         else:
-            return os.path.join(parent, 'Banana_Linux', 'Banana.x86')
+            return os.path.join(parent, 'VisualBanana_Linux', 'Banana.x86')
     elif platform.system() == 'Darwin':
             return os.path.join(parent, 'Banana.app')
     elif platform.system() == 'Windows':

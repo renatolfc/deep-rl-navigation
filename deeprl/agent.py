@@ -11,16 +11,18 @@ import torch
 import torch.optim as optim
 import torch.nn.functional as F
 
-from .model import VisualAdvantageNetwork
 from .model import AdvantageNetwork as QNetwork
+from .model import VisualAdvantageNetwork as VisualQNetwork
 
-BUFFER_SIZE = int(1e5)  # Replay buffer size
+BUFFER_SIZE = int(1e4)  # Replay buffer size
 BATCH_SIZE = 64  # Minibatch size
 GAMMA = 0.99  # Discount factor
 TAU = 1e-3  # target parameters soft update
 LR = 5e-4  # learning rate
 UPDATE_EVERY = 5  # how often to update the network
 
+Experience = namedtuple('Experience',
+                        field_names='state action reward next_state done'.split())
 
 class DeviceAwareClass(object):
     'Sets appropriate device for computation based on GPU availability.'
@@ -59,11 +61,13 @@ class DQNAgent(DeviceAwareClass):
             seed = 1234
         self.seed = random.seed(seed)
         self.use_visual = use_visual
+        self.episode = 0
+        self.scores = []
 
         # Q-Network(s) {{{
         if use_visual:
-            self.qnetwork_local = VisualAdvantageNetwork(state_size, action_size, seed).to(self.device)
-            self.qnetwork_target = VisualAdvantageNetwork(state_size, action_size, seed).to(self.device)
+            self.qnetwork_local = VisualQNetwork(state_size, action_size, seed).to(self.device)
+            self.qnetwork_target = VisualQNetwork(state_size, action_size, seed).to(self.device)
         else:
             self.qnetwork_local = QNetwork(state_size, action_size, seed).to(self.device)
             self.qnetwork_target = QNetwork(state_size, action_size, seed).to(self.device)
@@ -80,7 +84,7 @@ class DQNAgent(DeviceAwareClass):
         # Current time step
         self.t_step = 0
 
-    def step(self, state, action, reward, next_state, done, learning=True):
+    def step(self, state, action, reward, next_state, done, learning=True, tau=TAU):
         # Save experience in replay buffer
         self.memory.add(state, action, reward, next_state, done)
 
@@ -91,7 +95,7 @@ class DQNAgent(DeviceAwareClass):
             # (makes sure we don't try to learn at the very beginning)
             if learning and len(self.memory) > BATCH_SIZE:
                 experiences = self.memory.sample()
-                self.learn(experiences, GAMMA)
+                self.learn(experiences, GAMMA, tau)
         # }}}
 
     def act(self, state, epsilon=0.0):
@@ -117,11 +121,11 @@ class DQNAgent(DeviceAwareClass):
 
         # Epsilon-greedy action selection
         if random.random() > epsilon:
-            return randargmax(action_values.cpu().data.numpy())
+            return np.array([randargmax(action_values.cpu().data.numpy())])
         else:
-            return random.choice(np.arange(self.action_size))
+            return np.array([random.choice(np.arange(self.action_size))])
 
-    def learn(self, experiences, gamma):
+    def learn(self, experiences, gamma, tau):
         '''Updates value parameters using given batch of experience tuples.
 
         Parameters
@@ -134,10 +138,10 @@ class DQNAgent(DeviceAwareClass):
         states, actions, rewards, next_states, dones = experiences
 
         # Estimates the TD target R + γ max_a q(S′, a, w−) {{{
-        targets_next = self.qnetwork_target.forward(next_states).max(1)[0].unsqueeze(1)
+        targets_next = self.qnetwork_target.forward(next_states).detach().max(1)[0].unsqueeze(1)
         # By definition, all future rewards after reaching a terminal states are zero.
         # Hence, we use the `dones` booleans to properly assign value to states.
-        targets = rewards + (gamma * targets_next * (1 - dones))
+        targets = rewards.reshape((-1, 1)) + (gamma * targets_next * (1 - dones.reshape((-1, 1))))
         # }}}
 
         # Now we get what our current policy thinks are the values of the actions
@@ -156,7 +160,7 @@ class DQNAgent(DeviceAwareClass):
         self.optimizer.step()
 
         # Updating the target network
-        self.soft_update(self.qnetwork_local, self.qnetwork_target, TAU)
+        self.soft_update(self.qnetwork_local, self.qnetwork_target, tau)
 
     def soft_update(self, local_model, target_model, tau):
         '''Soft update model parameters.
@@ -180,19 +184,27 @@ class DQNAgent(DeviceAwareClass):
             target.data.copy_(tau * local.data + (1.0 - tau) * target.data)
 
     @staticmethod
-    def load(path):
+    def load(path, use_visual=False):
         checkpoint = torch.load(path)
-        model = Agent(checkpoint['state_size'], checkpoint['action_size'],
-                      checkpoint['seed'])
+        cls = globals()[checkpoint['class']]
+        model = cls(checkpoint['state_size'], checkpoint['action_size'],
+                    checkpoint['seed'], use_visual)
         model.qnetwork_local.load_state_dict(checkpoint['state_dict'])
+        model.qnetwork_target.load_state_dict(checkpoint['target_state_dict'])
+        model.episode = checkpoint['episode']
+        model.scores = checkpoint['scores']
         return model
 
     def save(self, path):
         checkpoint = {
+            'class': self.__class__.__name__,
             'state_size': self.state_size,
             'action_size': self.action_size,
             'seed': self.seed,
-            'state_dict': self.qnetwork_local.state_dict()
+            'state_dict': self.qnetwork_local.state_dict(),
+            'target_state_dict': self.qnetwork_target.state_dict(),
+            'episode': self.episode,
+            'scores': self.scores,
         }
         torch.save(checkpoint, path)
 
@@ -218,10 +230,10 @@ class ReplayBuffer(DeviceAwareClass):
         self.action_size = action_size
         self.memory = deque(maxlen=buffer_size)
         self.batch_size = batch_size
-        self.experience = namedtuple(
-            'Experience',
-            field_names='state action reward next_state done'.split()
-        )
+        self.experience = Experience
+
+    def __len__(self):
+        return len(self.memory)
 
     def add(self, state, action, reward, next_state, done):
         'Adds a new experience to memory.'
@@ -236,19 +248,19 @@ class ReplayBuffer(DeviceAwareClass):
         experiences = random.sample(self.memory, k=self.batch_size)
 
         states = torch.from_numpy(
-            np.vstack([e.state for e in experiences if e is not None])
+            np.stack([e.state for e in experiences if e is not None], axis=0)
         ).float().to(self.device)
         actions = torch.from_numpy(
-            np.vstack([e.action for e in experiences if e is not None])
+            np.stack([e.action for e in experiences if e is not None], axis=0)
         ).long().to(self.device)
         rewards = torch.from_numpy(
-            np.vstack([e.reward for e in experiences if e is not None])
+            np.stack([e.reward for e in experiences if e is not None], axis=0)
         ).float().to(self.device)
         next_states = torch.from_numpy(
-            np.vstack([e.next_state for e in experiences if e is not None])
+            np.stack([e.next_state for e in experiences if e is not None], axis=0)
         ).float().to(self.device)
         dones = torch.from_numpy(
-            np.vstack([e.done for e in experiences if e is not None]).astype(np.uint8)
+            np.stack([e.done for e in experiences if e is not None], axis=0).astype(np.uint8)
         ).float().to(self.device)
 
         return (states, actions, rewards, next_states, dones)
@@ -261,7 +273,7 @@ class ReplayBuffer(DeviceAwareClass):
 
 
 class DoubleDQNAgent(DQNAgent):
-    def learn(self, experiences, gamma):
+    def learn(self, experiences, gamma, tau):
         '''Updates value parameters using given batch of experience tuples.
 
         Parameters
@@ -276,13 +288,13 @@ class DoubleDQNAgent(DQNAgent):
         # Estimates the TD target R + γ Q(s′, argmax_a' Q(s', a', w) w−) {{{
 
         # Estimating argmax_a Q(s', a, w)
-        argmax_q_next_state = self.qnetwork_local.forward(next_states).argmax(dim=1).unsqueeze(1)
+        argmax_q_next_state = self.qnetwork_local.forward(next_states).detach().argmax(dim=1).unsqueeze(1)
 
         q_next_state = self.qnetwork_target.forward(next_states).gather(1, argmax_q_next_state)
 
         # By definition, all future rewards after reaching a terminal states are zero.
         # Hence, we use the `dones` booleans to properly assign value to states.
-        targets = rewards + (gamma * q_next_state * (1 - dones))
+        targets = rewards.reshape((-1, 1)) + (gamma * q_next_state * (1 - dones.reshape((-1, 1))))
         # }}}
 
         # Now we get what our current policy thinks are the values of the actions
@@ -301,11 +313,11 @@ class DoubleDQNAgent(DQNAgent):
         self.optimizer.step()
 
         # Updating the target network
-        self.soft_update(self.qnetwork_local, self.qnetwork_target, TAU)
+        self.soft_update(self.qnetwork_local, self.qnetwork_target, tau)
 
 
 def randargmax(a):
     return np.random.choice(np.flatnonzero(a == a.max()))
 
 
-Agent = DoubleDQNAgent
+Agent = DQNAgent
